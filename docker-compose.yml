@@ -1,0 +1,71 @@
+version: '3'
+services:
+  web:
+    image: nginx:latest
+    ports:
+      - '8000:80'
+    depends_on:
+      - app
+    volumes:
+      - ./web/default.conf:/etc/nginx/conf.d/default.conf
+      - ./app:/usr/share/nginx/html
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://host.docker.internal:3100/loki/api/v1/push"
+
+  app:
+    build:
+      args:
+        user: siwai0208
+        uid: 1000
+      context: ./app
+      dockerfile: Dockerfile
+    volumes:
+      - ./app:/usr/share/nginx/html
+      - ./app/www.conf:/usr/local/etc/php-fpm.d/www.conf
+    depends_on:
+      - mysql
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://host.docker.internal:3100/loki/api/v1/push"
+
+  mysql:
+    image: mysql:5.7
+    environment:
+      MYSQL_DATABASE: laravel
+      MYSQL_USER: root
+      MYSQL_ROOT_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./db:/var/lib/mysql
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://host.docker.internal:3100/loki/api/v1/push"
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana:/var/lib/grafana
+
+  loki:
+    image: grafana/loki:2.0.0
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+
+  promtail:
+    image: grafana/promtail:2.0.0
+    volumes:
+      - promtail:/var/log
+    command: -config.file=/etc/promtail/config.yml
+
+volumes:
+  db:
+  grafana:
+  promtail:
